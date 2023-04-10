@@ -1,0 +1,48 @@
+\documentclass{article}
+
+\usepackage{xcolor}
+\usepackage{import}
+\usepackage{float}
+
+\usepackage[outputdir=../build/LabBook]{minted}
+\usemintedstyle{vs}
+\definecolor{bg}{rgb}{0.95, 0.95, 0.95}
+\setminted{
+    linenos,
+    bgcolor=bg,
+    fontsize=\scriptsize,
+    frame=lines,
+    framesep=2mm
+}
+
+\usepackage{xpatch}
+
+\makeatletter
+\xpatchcmd\inputminted
+  {#3}
+  {\import@path #3}
+  {}{\fail}
+\makeatother
+
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=cyan
+}
+\urlstyle{same}
+
+\title{%
+    500083 Lab Book \\
+    \large Week 8 - Lab I
+    }
+
+\author{Peter Garrod}
+
+\begin{document}
+    \maketitle
+    \tableofcontents
+    \newpage
+
+    \import{./}{Header}
+\end{document}
