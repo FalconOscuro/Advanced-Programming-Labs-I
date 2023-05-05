@@ -1,5 +1,6 @@
 // Create mask for already solved cells
-kernel void Start(global const int* input, global unsigned short* output)
+__kernel void Start(__global const int* input, 
+    __global unsigned short* output)
 {
     const size_t gID = get_global_id(0);
 
@@ -12,9 +13,10 @@ kernel void Start(global const int* input, global unsigned short* output)
 }
 
 // Maps sudoku grid to the mask array
-kernel void Map(global const int* input, 
-    global unsigned short* output, 
-    local unsigned short* aux)
+__kernel void Map(
+    __global const int* input, 
+    __global unsigned short* output, 
+    __local unsigned short* aux)
 {
     const size_t gID = get_group_id(0);
 
@@ -64,10 +66,10 @@ kernel void Map(global const int* input,
 
 // Search for uniqueness within own subgrid
 // Run first as overwites unqiue mask data
-kernel void CollideCell(
-    global const unsigned short* input, 
-    global unsigned short* output,
-    local unsigned short* aux)
+__kernel void CollideCell(
+    __global const unsigned short* input, 
+    __global unsigned short* output,
+    __local unsigned short* aux)
 {
     const size_t gID = get_group_id(0);
 
@@ -109,10 +111,10 @@ kernel void CollideCell(
 }
 
 // Search for uniqueness within own row
-kernel void CollideRow(
-    global const unsigned short* input, 
-    global unsigned short* output,
-    local unsigned short* aux
+__kernel void CollideRow(
+    __global const unsigned short* input, 
+    __global unsigned short* output,
+    __local unsigned short* aux
 )
 {
     const size_t gID = get_group_id(0);
@@ -143,10 +145,10 @@ kernel void CollideRow(
 }
 
 // Search for uniqueness within own column
-kernel void CollideCol(
-    global const unsigned short* input, 
-    global unsigned short* output,
-    local unsigned short* aux
+__kernel void CollideCol(
+    __global const unsigned short* input, 
+    __global unsigned short* output,
+    __local unsigned short* aux
 )
 {
     const size_t gID = get_group_id(0);
@@ -179,7 +181,7 @@ kernel void CollideCol(
 // Copy contents of unique mask back to grid
 // If any bits of the unique mask have been set then the cell has been solved
 // Otherwise puzzle is unsolvable
-kernel void WriteBack(global const unsigned short* input, global int* output)
+__kernel void WriteBack(__global const unsigned short* input, __global int* output)
 {
     const size_t gID = get_global_id(0);
 

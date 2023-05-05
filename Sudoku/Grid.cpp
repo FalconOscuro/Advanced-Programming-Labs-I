@@ -46,7 +46,7 @@ bool Grid::LoadGrid(const char filename[])
  * 
  * @param filename Write out file
  */
-void Grid::SaveGrid(const char filename[])
+void Grid::SaveGrid(const char filename[]) const
 {
     ofstream outFile(filename);
     if (!outFile)
@@ -89,7 +89,12 @@ istream& operator>>(istream& is, Grid& grid)
     return is;
 }
 
-int* Grid::GetGrid()
+int Grid::Get(size_t x, size_t y) const
 {
-    return *m_Grid;
+    return m_Grid[x][y];
+}
+
+void Grid::Set(size_t x, size_t y, int n)
+{
+    m_Grid[x][y] = n;
 }

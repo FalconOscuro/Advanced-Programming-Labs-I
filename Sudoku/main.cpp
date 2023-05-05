@@ -1,5 +1,4 @@
 #include "SudokuPuzzle.h"
-
 // You should not need to change any code in this file
 
 int main(int argc, char **) {

@@ -1,9 +1,8 @@
-#ifndef SUDOKU_H
-#define SUDOKU_H
+#ifndef CPUSUDOKU_H
+#define CPUSUDOKU_H
 
 #include "Grid.h"
 
-#include <CL/opencl.hpp>
 #include <chrono>
 
 class SudokuPuzzle
@@ -17,16 +16,17 @@ public:
 	void output(const char filenameOut[]) const;
 
 private:
+
 	std::chrono::duration<double, std::micro> _loadTime;
 	std::chrono::duration<double, std::micro> _solveTime;
 
 	Grid m_Grid;
 
-	cl::Context m_Context;
-	cl::CommandQueue m_Queue;
-	cl::Program m_FindProg;
-	
-	cl::Program m_Program;
+    unsigned short int m_BitMask[9][9];
+
+    unsigned short int* m_ColumnIndex[9][9];
+    unsigned short int* m_RowIndex[9][9];
+    unsigned short int* m_BlockIndex[9][9];
 };
 
-#endif // SUDOKU_H
+#endif // CPUSUDOKU_H

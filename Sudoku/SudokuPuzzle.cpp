@@ -5,33 +5,10 @@
 #include <string>
 #include <vector>
 
-std::string load_program(std::string input) {
-  std::ifstream stream(input.c_str());
-  if (!stream.is_open()) {
-    std::cout << "Cannot open file: " << input << std::endl;
-    exit(1);
-  }
-  return std::string(std::istreambuf_iterator<char>(stream),
-                     (std::istreambuf_iterator<char>()));
-}
-
 SudokuPuzzle::SudokuPuzzle() :
 	_loadTime (std::chrono::duration<double>(0)),
 	_solveTime(std::chrono::duration<double>(0))
-{
-	cl::Platform platform = cl::Platform::getDefault();
-
-	std::cout << "Using Platform: " << platform.getInfo<CL_PLATFORM_NAME>() << std::endl;
-
-	cl::Device device = cl::Device::getDefault();
-	std::cout << "Using Device: " << device.getInfo<CL_DEVICE_NAME>() << std::endl;
-
-	m_Context = cl::Context(CL_DEVICE_TYPE_DEFAULT);
-
-	m_Queue = cl::CommandQueue(m_Context);
-	
-	m_Program = cl::Program(m_Context, load_program("Find.cl"), true);
-}
+{ }
 
 SudokuPuzzle::~SudokuPuzzle() {
 	std::cout << "Time to load: " << _loadTime.count() << " microseconds" << std::endl;
@@ -41,7 +18,23 @@ SudokuPuzzle::~SudokuPuzzle() {
 void SudokuPuzzle::load(const char filenameIn[]) {
 	const auto start = std::chrono::high_resolution_clock::now();
 
-	std::cout << m_Grid.LoadGrid(filenameIn) << std::endl;
+	// Load the grid
+	m_Grid.LoadGrid(filenameIn);
+
+    // Load bitmask
+    for (size_t i = 0; i < 9; i++)
+        for (size_t j = 0; j < 9; j++)
+        {
+            unsigned short int mask = (0x1 << m_Grid.Get(i, j)) >> 1;
+
+            m_BitMask[i][j] = mask;
+
+            unsigned short int* addr = &m_BitMask[i][j];
+            m_ColumnIndex[j][i] = addr;
+            m_RowIndex[i][j] = addr;
+            m_BlockIndex[((i / 3) * 3) + (j / 3)][((i % 3) * 3) + (j % 3)] = addr;
+        }
+
 
 	const auto end = std::chrono::high_resolution_clock::now();
 	_loadTime = end - start;
@@ -49,70 +42,101 @@ void SudokuPuzzle::load(const char filenameIn[]) {
 	std::cout << m_Grid << std::endl;
 }
 
+// Create bitmask of unsolved bits for singular set
+unsigned short int FindUnSolved(unsigned short int* set[9])
+{
+    unsigned short int solvedMask = 0;
+
+    for (size_t i = 0; i < 9; i++)
+        solvedMask |= *set[i];
+
+    return (~solvedMask) & 0x1FF;
+}
+
+// Create bitmask of unique bits for singular set
+unsigned short int FindUnique(unsigned short int* set[9])
+{
+    unsigned short int uniqueMask = 0;
+
+    for (size_t i = 0; i < 9; i++)
+        for (size_t j = i+1; j < 9; j++)
+            uniqueMask |= (*set[i]) & (*set[j]);
+
+    return (~uniqueMask) & 0x1FF;
+}  
+
 void SudokuPuzzle::solve() 
 {
-	unsigned short* optionTable = new unsigned short[81]();
-
-	cl::Buffer d_a = cl::Buffer(m_Context, CL_MEM_READ_WRITE, sizeof(int) * 81);
-	cl::Buffer d_b = cl::Buffer(m_Context, CL_MEM_READ_WRITE, sizeof(unsigned short) * 81);
-	cl::Buffer d_c = cl::Buffer(m_Context, CL_MEM_READ_WRITE, sizeof(unsigned short) * 81);
-
-	cl::Kernel start_kernel(m_Program, "Start");
-	start_kernel.setArg(0, d_a);
-	start_kernel.setArg(1, d_b);
-
-	cl::Kernel map_kernel(m_Program, "Map");
-	map_kernel.setArg(0, d_a);
-	map_kernel.setArg(1, d_b);
-	map_kernel.setArg(2, sizeof(unsigned short) * 20, NULL);
-
-	cl::Kernel cell_kernel(m_Program, "CollideCell");
-	cell_kernel.setArg(0, d_b);
-	cell_kernel.setArg(1, d_c);
-	cell_kernel.setArg(2, sizeof(unsigned short) * 8, NULL);
-
-	cl::Kernel col_kernel(m_Program, "CollideCol");
-	col_kernel.setArg(0, d_b);
-	col_kernel.setArg(1, d_c);
-	col_kernel.setArg(2, sizeof(unsigned short) * 8, NULL);
-
-	cl::Kernel row_kernel(m_Program, "CollideRow");
-	row_kernel.setArg(0, d_b);
-	row_kernel.setArg(1, d_c);
-	row_kernel.setArg(2, sizeof(unsigned short) * 8, NULL);
-
-	cl::Kernel write_kernel(m_Program, "WriteBack");
-	write_kernel.setArg(0, d_c);
-	write_kernel.setArg(1, d_a);
-	m_Queue.enqueueWriteBuffer(d_b, CL_FALSE, 0, sizeof(unsigned short) * 81, optionTable);
-
 	const auto start = std::chrono::high_resolution_clock::now();
+    int loops = 0;
 
-	m_Queue.enqueueWriteBuffer(d_a, CL_FALSE, 0, sizeof(int) * 81, m_Grid.GetGrid());	
+    while (true)
+    {
+        unsigned short int combinedCol[9];
+        unsigned short int combinedRow[9];
+        unsigned short int combinedBlk[9];
 
-	for (int i = 0; i < 5; i++)
-	{
-		m_Queue.enqueueNDRangeKernel(start_kernel, cl::NullRange, cl::NDRange(81));
-		m_Queue.enqueueNDRangeKernel(map_kernel, cl::NullRange, 
-			cl::NDRange(81, 20), cl::NDRange(1, 20));
-		m_Queue.enqueueNDRangeKernel(cell_kernel, cl::NullRange, 
-			cl::NDRange(81, 8), cl::NDRange(1, 8));
-		m_Queue.enqueueNDRangeKernel(col_kernel, cl::NullRange, 
-			cl::NDRange(81, 8), cl::NDRange(1, 8));
-		m_Queue.enqueueNDRangeKernel(row_kernel, cl::NullRange, 
-			cl::NDRange(81, 8), cl::NDRange(1, 8));
-		m_Queue.enqueueNDRangeKernel(write_kernel, cl::NullRange, cl::NDRange(81));
-	}
+        // Find all unsolved bits per row/column/block
+        for (size_t i = 0; i < 9; i++)
+        {
+            combinedCol[i] = FindUnSolved(m_ColumnIndex[i]);
+            combinedRow[i] = FindUnSolved(m_RowIndex[i]);
+            combinedBlk[i] = FindUnSolved(m_BlockIndex[i]);
+        }
 
-	m_Queue.enqueueReadBuffer(d_a, CL_TRUE, 0, sizeof(int) * 81, m_Grid.GetGrid());
+        bool solved = true;
+
+        // Apply bitmask to unsolved cells
+        for (size_t i = 0; i < 9; i++)
+            for (size_t j = 0; j < 9; j++)
+            {
+                if (!m_BitMask[i][j])
+                {
+                    solved = false;
+                    m_BitMask[i][j] = combinedCol[j] & combinedRow[i] & combinedBlk[((i / 3) * 3) + (j / 3)];
+                    continue;
+                }
+            }
+        
+        // If no unsolved cells exist, puzzle is solved
+        if (solved)
+            break;
+
+        // Find all unique bits per row/column/block
+        for (size_t i = 0; i < 9; i++)
+        {
+            combinedCol[i] = FindUnique(m_ColumnIndex[i]);
+            combinedRow[i] = FindUnique(m_RowIndex[i]);
+            combinedBlk[i] = FindUnique(m_BlockIndex[i]);
+        }
+
+        // Apply unique bitmask per cell
+        for (size_t i = 0; i < 9; i++)
+            for(size_t j = 0; j < 9; j++)
+                m_BitMask[i][j] &= (combinedCol[j] | combinedRow[i] | combinedBlk[((i / 3) * 3) + (j / 3)]);
+        
+        loops++;
+    }
+
+    // Read back to grid
+    for (size_t i = 0; i < 9; i++)
+        for (size_t j = 0; j < 9; j++)
+            {
+                int num = 0;
+
+                for (size_t k = 0; k < 9; k++)
+                    num += ((m_BitMask[i][j] >> k) & 0x1) * (k + 1);
+
+                m_Grid.Set(i, j, num);
+            }
 
 	const auto end = std::chrono::high_resolution_clock::now();
 	_solveTime = end - start;
-	delete optionTable;
 }
 
 // This is an example of how you may output the solved puzzle
 void SudokuPuzzle::output(const char filenameOut[]) const {
 	std::cout << '\n' << m_Grid << std::endl;
-	// Add your code here to write your solution to the file filenameOut
+	
+    m_Grid.SaveGrid(filenameOut);
 }
