@@ -27,9 +27,9 @@ void SudokuPuzzle::load(const char filenameIn[]) {
         {
             unsigned short int mask = (0x1 << m_Grid.Get(i, j)) >> 1;
 
-            m_BitMask[i][j] = mask;
+            m_CellArray[i][j] = mask;
 
-            unsigned short int* addr = &m_BitMask[i][j];
+            unsigned short int* addr = &m_CellArray[i][j];
             m_ColumnIndex[j][i] = addr;
             m_RowIndex[i][j] = addr;
             m_BlockIndex[((i / 3) * 3) + (j / 3)][((i % 3) * 3) + (j % 3)] = addr;
@@ -42,25 +42,25 @@ void SudokuPuzzle::load(const char filenameIn[]) {
 	std::cout << m_Grid << std::endl;
 }
 
-// Create bitmask of unsolved bits for singular set
-unsigned short int FindUnSolved(unsigned short int* set[9])
+// Create bitmask of unsolved bits for singular group
+SudokuPuzzle::Bitmask SudokuPuzzle::FindUnSolved(CellGroup group)
 {
-    unsigned short int solvedMask = 0;
+    Bitmask solvedMask = 0;
 
     for (size_t i = 0; i < 9; i++)
-        solvedMask |= *set[i];
+        solvedMask |= *group[i];
 
     return (~solvedMask) & 0x1FF;
 }
 
-// Create bitmask of unique bits for singular set
-unsigned short int FindUnique(unsigned short int* set[9])
+// Create bitmask of unique bits for singular group
+SudokuPuzzle::Bitmask SudokuPuzzle::FindUnique(CellGroup group)
 {
-    unsigned short int uniqueMask = 0;
+    Bitmask uniqueMask = 0;
 
     for (size_t i = 0; i < 9; i++)
         for (size_t j = i+1; j < 9; j++)
-            uniqueMask |= (*set[i]) & (*set[j]);
+            uniqueMask |= (*group[i]) & (*group[j]);
 
     return (~uniqueMask) & 0x1FF;
 }  
@@ -72,16 +72,16 @@ void SudokuPuzzle::solve()
 
     while (true)
     {
-        unsigned short int combinedCol[9];
-        unsigned short int combinedRow[9];
-        unsigned short int combinedBlk[9];
+        Bitmask combinedCol[9];
+        Bitmask combinedRow[9];
+        Bitmask combinedBlk[9];
 
         // Find all unsolved bits per row/column/block
         for (size_t i = 0; i < 9; i++)
         {
-            combinedCol[i] = FindUnSolved(m_ColumnIndex[i]);
-            combinedRow[i] = FindUnSolved(m_RowIndex[i]);
-            combinedBlk[i] = FindUnSolved(m_BlockIndex[i]);
+            combinedCol[i] = FindUnSolved(m_ColumnIndex [i]);
+            combinedRow[i] = FindUnSolved(m_RowIndex    [i]);
+            combinedBlk[i] = FindUnSolved(m_BlockIndex  [i]);
         }
 
         bool solved = true;
@@ -90,10 +90,12 @@ void SudokuPuzzle::solve()
         for (size_t i = 0; i < 9; i++)
             for (size_t j = 0; j < 9; j++)
             {
-                if (!m_BitMask[i][j])
+                if (!m_CellArray[i][j])
                 {
                     solved = false;
-                    m_BitMask[i][j] = combinedCol[j] & combinedRow[i] & combinedBlk[((i / 3) * 3) + (j / 3)];
+                    m_CellArray[i][j] = 
+                        combinedCol[j] & combinedRow[i] & 
+                            combinedBlk[((i / 3) * 3) + (j / 3)];
                     continue;
                 }
             }
@@ -105,15 +107,17 @@ void SudokuPuzzle::solve()
         // Find all unique bits per row/column/block
         for (size_t i = 0; i < 9; i++)
         {
-            combinedCol[i] = FindUnique(m_ColumnIndex[i]);
-            combinedRow[i] = FindUnique(m_RowIndex[i]);
-            combinedBlk[i] = FindUnique(m_BlockIndex[i]);
+            combinedCol[i] = FindUnique(m_ColumnIndex   [i]);
+            combinedRow[i] = FindUnique(m_RowIndex      [i]);
+            combinedBlk[i] = FindUnique(m_BlockIndex    [i]);
         }
 
         // Apply unique bitmask per cell
         for (size_t i = 0; i < 9; i++)
             for(size_t j = 0; j < 9; j++)
-                m_BitMask[i][j] &= (combinedCol[j] | combinedRow[i] | combinedBlk[((i / 3) * 3) + (j / 3)]);
+                m_CellArray[i][j] &= 
+                    combinedCol[j] | combinedRow[i] | 
+                        combinedBlk[((i / 3) * 3) + (j / 3)];
         
         loops++;
     }
@@ -125,7 +129,7 @@ void SudokuPuzzle::solve()
                 int num = 0;
 
                 for (size_t k = 0; k < 9; k++)
-                    num += ((m_BitMask[i][j] >> k) & 0x1) * (k + 1);
+                    num += ((m_CellArray[i][j] >> k) & 0x1) * (k + 1);
 
                 m_Grid.Set(i, j, num);
             }

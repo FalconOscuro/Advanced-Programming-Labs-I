@@ -22,11 +22,16 @@ private:
 
 	Grid m_Grid;
 
-    unsigned short int m_BitMask[9][9];
+	typedef unsigned short int Bitmask;
+    Bitmask m_CellArray[9][9];
 
-    unsigned short int* m_ColumnIndex[9][9];
-    unsigned short int* m_RowIndex[9][9];
-    unsigned short int* m_BlockIndex[9][9];
+	typedef Bitmask* CellGroup[9];
+    CellGroup m_ColumnIndex	[9];
+    CellGroup m_RowIndex	[9];
+    CellGroup m_BlockIndex	[9];
+
+	static Bitmask FindUnSolved(CellGroup group);
+	static Bitmask FindUnique(CellGroup group);
 };
 
 #endif // CPUSUDOKU_H
