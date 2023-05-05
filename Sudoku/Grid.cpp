@@ -32,7 +32,7 @@ bool Grid::LoadGrid(const char filename[])
             // Ensure end of file has not been reached yet
             if (gridFile.peek() == EOF)
                 return false;
-            
+
             gridFile >> grid[i][j];
         }
 

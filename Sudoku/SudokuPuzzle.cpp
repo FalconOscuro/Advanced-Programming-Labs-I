@@ -18,23 +18,22 @@ SudokuPuzzle::~SudokuPuzzle() {
 void SudokuPuzzle::load(const char filenameIn[]) {
 	const auto start = std::chrono::high_resolution_clock::now();
 
-	// Load the grid
-	m_Grid.LoadGrid(filenameIn);
+    // Load the grid
+    m_Grid.LoadGrid(filenameIn);
 
     // Load bitmask
     for (size_t i = 0; i < 9; i++)
         for (size_t j = 0; j < 9; j++)
         {
-            unsigned short int mask = (0x1 << m_Grid.Get(i, j)) >> 1;
+            Bitmask mask = (0x1 << m_Grid.Get(i, j)) >> 1;
 
             m_CellArray[i][j] = mask;
 
-            unsigned short int* addr = &m_CellArray[i][j];
+            Bitmask* addr = &m_CellArray[i][j];
             m_ColumnIndex[j][i] = addr;
             m_RowIndex[i][j] = addr;
             m_BlockIndex[((i / 3) * 3) + (j / 3)][((i % 3) * 3) + (j % 3)] = addr;
         }
-
 
 	const auto end = std::chrono::high_resolution_clock::now();
 	_loadTime = end - start;
